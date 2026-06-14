@@ -59,11 +59,18 @@ public partial class App : Application, IShellController
         _provider.GetRequiredService<IAppPaths>().EnsureCreated();
 
         // ---- Tray ----
-        var trayViewModel = _provider.GetRequiredService<TrayViewModel>();
         _notifyIcon = (TaskbarIcon)FindResource("NotifyIcon");
-        _notifyIcon.DataContext = trayViewModel;
-        _notifyIcon.LeftClickCommand = trayViewModel.ShowWindowCommand;
         _notifyIcon.ForceCreate();
+
+        var trayVm = _provider.GetRequiredService<TrayViewModel>();
+        _notifyIcon.DataContext = trayVm;
+        _notifyIcon.LeftClickCommand = trayVm.ShowWindowCommand;
+        if (_notifyIcon.ContextMenu is { } menu)
+        {
+            TrayMenuBuilder.Build(menu, trayVm);
+            // Rebuild the menu each time it is opened so account/group/active changes show.
+            menu.Opened += (_, _) => TrayMenuBuilder.Build(menu, trayVm);
+        }
 
         // ---- Main window ----
         _mainWindow = _provider.GetRequiredService<MainWindow>();
@@ -74,9 +81,8 @@ public partial class App : Application, IShellController
             ShowMainWindow();
         }
 
-        // Kick off the first data load and tray menu build.
+        // Kick off the first data load.
         _ = _mainWindow.ViewModel.LoadAsync();
-        _provider.GetRequiredService<TrayViewModel>().Rebuild();
     }
 
     private bool ShouldStartMinimized(string[] args)
