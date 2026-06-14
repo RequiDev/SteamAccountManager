@@ -1,0 +1,62 @@
+name: Release
+
+# Build, test, and publish a GitHub Release whenever a version tag (e.g. v1.0.0) is pushed.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # required to create the release and upload assets
+
+jobs:
+  release:
+    runs-on: windows-latest   # WPF requires Windows
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Derive version from tag
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore SteamAccountManager.slnx
+
+      - name: Test
+        run: dotnet test SteamAccountManager.slnx -c Release --no-restore
+
+      - name: Publish (self-contained single-file, win-x64)
+        shell: bash
+        run: >
+          dotnet publish src/SteamAccountManager.App/SteamAccountManager.App.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none
+          -p:DebugSymbols=false
+          -p:Version=${{ steps.version.outputs.version }}
+          -o publish
+
+      - name: Package zip
+        shell: pwsh
+        run: Compress-Archive -Path publish/* -DestinationPath "SteamAccountManager-${{ steps.version.outputs.version }}-win-x64.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SteamAccountManager ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            publish/SteamAccountManager.App.exe
+            SteamAccountManager-${{ steps.version.outputs.version }}-win-x64.zip
