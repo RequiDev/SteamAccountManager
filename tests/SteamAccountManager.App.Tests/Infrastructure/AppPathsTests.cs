@@ -31,6 +31,7 @@ public class AppPathsTests
         Assert.Equal(Path.Combine(baseDir, "settings.json"), sut.SettingsFile);
         Assert.Equal(Path.Combine(baseDir, "avatars"), sut.AvatarCacheDirectory);
         Assert.Equal(Path.Combine(baseDir, "backups"), sut.BackupsDirectory);
+        Assert.Equal(Path.Combine(baseDir, "tokens"), sut.TokensDirectory);
     }
 
     [Fact]
@@ -44,6 +45,7 @@ public class AppPathsTests
         Assert.True(Directory.Exists(sut.BaseDirectory));
         Assert.True(Directory.Exists(sut.AvatarCacheDirectory));
         Assert.True(Directory.Exists(sut.BackupsDirectory));
+        Assert.True(Directory.Exists(sut.TokensDirectory));
 
         Directory.Delete(baseDir, recursive: true);
     }

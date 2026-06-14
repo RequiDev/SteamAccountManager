@@ -19,19 +19,22 @@ public sealed class AccountSwitcher : IAccountSwitcher
     private readonly ISteamRegistry _registry;
     private readonly ISteamProcessController _process;
     private readonly IBackupService _backup;
+    private readonly ISteamTokenStore _tokenStore;
 
     public AccountSwitcher(
         ISteamLocator locator,
         ILoginUsersStore loginUsers,
         ISteamRegistry registry,
         ISteamProcessController process,
-        IBackupService backup)
+        IBackupService backup,
+        ISteamTokenStore tokenStore)
     {
         _locator = locator;
         _loginUsers = loginUsers;
         _registry = registry;
         _process = process;
         _backup = backup;
+        _tokenStore = tokenStore;
     }
 
     public void SwitchTo(string steamId64)
@@ -42,7 +45,16 @@ public sealed class AccountSwitcher : IAccountSwitcher
             .FirstOrDefault(a => a.SteamId64 == steamId64)
             ?? throw new AccountNotFoundException(steamId64);
 
+        // Which account is logged in right now (its token is the one currently in local.vdf).
+        var current = _registry.GetActiveAccountSteamId64();
+
         EnsureSteamClosed();
+
+        // Save the outgoing account's token so switching back to it later is silent.
+        if (current is not null)
+        {
+            _tokenStore.Capture(current, paths.LocalVdfPath);
+        }
 
         var previousAutoLogin = _registry.GetAutoLoginUser();
         var previousRemember = _registry.GetRememberPassword();
@@ -53,6 +65,12 @@ public sealed class AccountSwitcher : IAccountSwitcher
             _registry.SetAutoLoginUser(target.AccountName);
             _registry.SetRememberPassword(true);
             _loginUsers.SetActiveAccount(paths.LoginUsersPath, steamId64);
+
+            // Put the target's saved token in place LAST, after the throwable writes — so a
+            // failed switch never leaves the live local.vdf out of sync with rolled-back
+            // selectors. Best-effort: no saved token -> Steam shows the login screen this once,
+            // and we capture it on the next switch away.
+            _tokenStore.Restore(steamId64, paths.LocalVdfPath);
         }
         catch
         {

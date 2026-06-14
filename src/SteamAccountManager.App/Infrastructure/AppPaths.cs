@@ -13,7 +13,10 @@ public interface IAppPaths
     string AvatarCacheDirectory { get; }
     string BackupsDirectory { get; }
 
-    /// <summary>Creates the base directory and the avatar/backup sub-directories if missing.</summary>
+    /// <summary>Per-account copies of Steam's local.vdf token store, for silent account switching.</summary>
+    string TokensDirectory { get; }
+
+    /// <summary>Creates the base directory and the avatar/backup/token sub-directories if missing.</summary>
     void EnsureCreated();
 }
 
@@ -32,11 +35,13 @@ public sealed class AppPaths : IAppPaths
     public string SettingsFile => Path.Combine(BaseDirectory, "settings.json");
     public string AvatarCacheDirectory => Path.Combine(BaseDirectory, "avatars");
     public string BackupsDirectory => Path.Combine(BaseDirectory, "backups");
+    public string TokensDirectory => Path.Combine(BaseDirectory, "tokens");
 
     public void EnsureCreated()
     {
         Directory.CreateDirectory(BaseDirectory);
         Directory.CreateDirectory(AvatarCacheDirectory);
         Directory.CreateDirectory(BackupsDirectory);
+        Directory.CreateDirectory(TokensDirectory);
     }
 }
