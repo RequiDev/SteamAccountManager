@@ -32,6 +32,7 @@ public class AppPathsTests
         Assert.Equal(Path.Combine(baseDir, "avatars"), sut.AvatarCacheDirectory);
         Assert.Equal(Path.Combine(baseDir, "backups"), sut.BackupsDirectory);
         Assert.Equal(Path.Combine(baseDir, "tokens"), sut.TokensDirectory);
+        Assert.Equal(Path.Combine(baseDir, "tokens", "connectcache.json"), sut.ConnectCacheFile);
     }
 
     [Fact]

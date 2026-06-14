@@ -8,6 +8,12 @@ public interface IAccountSwitcher
 {
     void SwitchTo(string steamId64);
     void BeginAddAccount();
+
+    /// <summary>
+    /// Opportunistically records the currently-cached account tokens from local.vdf (read-only).
+    /// Safe to call while Steam is running; keeps the token store current between switches.
+    /// </summary>
+    void CaptureTokens();
 }
 
 public sealed class AccountSwitcher : IAccountSwitcher
@@ -19,7 +25,7 @@ public sealed class AccountSwitcher : IAccountSwitcher
     private readonly ISteamRegistry _registry;
     private readonly ISteamProcessController _process;
     private readonly IBackupService _backup;
-    private readonly ISteamTokenStore _tokenStore;
+    private readonly IConnectCacheStore _connectCache;
 
     public AccountSwitcher(
         ISteamLocator locator,
@@ -27,14 +33,14 @@ public sealed class AccountSwitcher : IAccountSwitcher
         ISteamRegistry registry,
         ISteamProcessController process,
         IBackupService backup,
-        ISteamTokenStore tokenStore)
+        IConnectCacheStore connectCache)
     {
         _locator = locator;
         _loginUsers = loginUsers;
         _registry = registry;
         _process = process;
         _backup = backup;
-        _tokenStore = tokenStore;
+        _connectCache = connectCache;
     }
 
     public void SwitchTo(string steamId64)
@@ -45,16 +51,12 @@ public sealed class AccountSwitcher : IAccountSwitcher
             .FirstOrDefault(a => a.SteamId64 == steamId64)
             ?? throw new AccountNotFoundException(steamId64);
 
-        // Which account is logged in right now (its token is the one currently in local.vdf).
-        var current = _registry.GetActiveAccountSteamId64();
-
         EnsureSteamClosed();
 
-        // Save the outgoing account's token so switching back to it later is silent.
-        if (current is not null)
-        {
-            _tokenStore.Capture(current, paths.LocalVdfPath);
-        }
+        // Preserve every account's token: capture local.vdf's current ConnectCache entries and
+        // re-inject the full union, so a token Steam pruned for the target is restored and it can
+        // silently auto-login. Best-effort — token preservation must never block the switch.
+        TryPreserveTokens(paths.LocalVdfPath);
 
         var previousAutoLogin = _registry.GetAutoLoginUser();
         var previousRemember = _registry.GetRememberPassword();
@@ -65,12 +67,6 @@ public sealed class AccountSwitcher : IAccountSwitcher
             _registry.SetAutoLoginUser(target.AccountName);
             _registry.SetRememberPassword(true);
             _loginUsers.SetActiveAccount(paths.LoginUsersPath, steamId64);
-
-            // Put the target's saved token in place LAST, after the throwable writes — so a
-            // failed switch never leaves the live local.vdf out of sync with rolled-back
-            // selectors. Best-effort: no saved token -> Steam shows the login screen this once,
-            // and we capture it on the next switch away.
-            _tokenStore.Restore(steamId64, paths.LocalVdfPath);
         }
         catch
         {
@@ -98,6 +94,36 @@ public sealed class AccountSwitcher : IAccountSwitcher
         EnsureSteamClosed();
         _registry.ClearAutoLoginUser();
         _process.Launch();
+    }
+
+    public void CaptureTokens()
+    {
+        var paths = _locator.Locate();
+        if (paths is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _connectCache.Capture(paths.LocalVdfPath);
+        }
+        catch
+        {
+            // best-effort
+        }
+    }
+
+    private void TryPreserveTokens(string localVdfPath)
+    {
+        try
+        {
+            _connectCache.Merge(localVdfPath);
+        }
+        catch
+        {
+            // best-effort
+        }
     }
 
     private void EnsureSteamClosed()

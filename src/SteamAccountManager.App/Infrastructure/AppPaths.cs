@@ -16,6 +16,9 @@ public interface IAppPaths
     /// <summary>Per-account copies of Steam's local.vdf token store, for silent account switching.</summary>
     string TokensDirectory { get; }
 
+    /// <summary>Persisted union of all accounts' ConnectCache token entries.</summary>
+    string ConnectCacheFile { get; }
+
     /// <summary>Creates the base directory and the avatar/backup/token sub-directories if missing.</summary>
     void EnsureCreated();
 }
@@ -36,6 +39,7 @@ public sealed class AppPaths : IAppPaths
     public string AvatarCacheDirectory => Path.Combine(BaseDirectory, "avatars");
     public string BackupsDirectory => Path.Combine(BaseDirectory, "backups");
     public string TokensDirectory => Path.Combine(BaseDirectory, "tokens");
+    public string ConnectCacheFile => Path.Combine(TokensDirectory, "connectcache.json");
 
     public void EnsureCreated()
     {

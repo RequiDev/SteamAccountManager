@@ -16,15 +16,18 @@ public sealed class AccountListService : IAccountListService
     private readonly ISteamLocator _locator;
     private readonly ILoginUsersStore _loginUsers;
     private readonly IAccountMetadataStore _metadata;
+    private readonly IConnectCacheStore _connectCache;
 
     public AccountListService(
         ISteamLocator locator,
         ILoginUsersStore loginUsers,
-        IAccountMetadataStore metadata)
+        IAccountMetadataStore metadata,
+        IConnectCacheStore connectCache)
     {
         _locator = locator;
         _loginUsers = loginUsers;
         _metadata = metadata;
+        _connectCache = connectCache;
     }
 
     public IReadOnlyList<AccountListItem> GetAccounts()
@@ -41,7 +44,10 @@ public sealed class AccountListService : IAccountListService
         {
             // IAccountMetadataStore.Get never returns null (returns a fresh default when absent).
             var meta = _metadata.Get(account.SteamId64);
-            result.Add(AccountListItem.From(account, meta));
+            result.Add(AccountListItem.From(account, meta) with
+            {
+                IsTokenCached = _connectCache.HasToken(account.AccountName),
+            });
         }
 
         return result;

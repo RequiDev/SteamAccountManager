@@ -85,6 +85,20 @@
                                                 </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding AccountName}" Opacity="0.7" FontSize="12" />
+                                            <TextBlock FontSize="11" Margin="0,2,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="○ sign-in needed once" />
+                                                        <Setter Property="Foreground" Value="#FFB74D" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsTokenCached}" Value="True">
+                                                                <Setter Property="Text" Value="● ready — auto-login" />
+                                                                <Setter Property="Foreground" Value="#66BB6A" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                                 <ui:Button Content="Switch" Command="{Binding SwitchCommand}"
                                                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
