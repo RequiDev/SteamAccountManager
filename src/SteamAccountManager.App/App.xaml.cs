@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SteamAccountManager.App.Infrastructure;
 using SteamAccountManager.App.Services;
 using SteamAccountManager.App.ViewModels;
+using SteamAccountManager.App.Views;
 using SteamAccountManager.Core.Avatars;
 using SteamAccountManager.Core.Steam;
 using SteamAccountManager.Core.Storage;
@@ -15,6 +16,9 @@ namespace SteamAccountManager.App;
 
 public partial class App : Application, IShellController
 {
+    public static IServiceProvider Services =>
+        ((App)Current)._provider ?? throw new InvalidOperationException("Provider not built yet.");
+
     private const string MutexName = "SteamAccountManager.SingleInstance.Mutex";
     private const string ShowEventName = "SteamAccountManager.SingleInstance.ShowEvent";
 
@@ -139,6 +143,7 @@ public partial class App : Application, IShellController
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<MainWindow>();
+        services.AddTransient<SettingsWindow>();
     }
 
     // ---- IShellController ----
