@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/SteamAccountManager.App/SteamAccountManager.App.csproj" />
     <Project Path="src/SteamAccountManager.Core/SteamAccountManager.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SteamAccountManager.App.Tests/SteamAccountManager.App.Tests.csproj" />
     <Project Path="tests/SteamAccountManager.Core.Tests/SteamAccountManager.Core.Tests.csproj" />
   </Folder>
 </Solution>
