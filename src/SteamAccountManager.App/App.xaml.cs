@@ -124,6 +124,8 @@ public partial class App : Application, IShellController
         services.AddSingleton<ISteamProcessController, SteamProcessController>();
         services.AddSingleton<IBackupService>(sp =>
             new BackupService(sp.GetRequiredService<IAppPaths>().BackupsDirectory));
+        services.AddSingleton<ISteamTokenStore>(sp =>
+            new SteamTokenStore(sp.GetRequiredService<IAppPaths>().TokensDirectory));
         services.AddSingleton<IAccountSwitcher, AccountSwitcher>();
 
         // Core/Storage (factory lambdas pass the AppPaths file paths + the singleton IAtomicFile).

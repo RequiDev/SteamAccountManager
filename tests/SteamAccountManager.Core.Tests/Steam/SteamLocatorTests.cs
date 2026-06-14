@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using SteamAccountManager.Core.Steam;
 using SteamAccountManager.Core.System;
 using SteamAccountManager.Core.Tests.Fakes;
@@ -21,6 +23,10 @@ public class SteamLocatorTests
         Assert.Equal(@"C:\Program Files (x86)\Steam", paths!.InstallDirectory);
         Assert.Equal(@"C:\Program Files (x86)\Steam\steam.exe", paths.ExecutablePath);
         Assert.Equal(@"C:\Program Files (x86)\Steam\config\loginusers.vdf", paths.LoginUsersPath);
+        // local.vdf lives under LocalAppData regardless of the install dir.
+        Assert.Equal(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Steam", "local.vdf"),
+            paths.LocalVdfPath);
     }
 
     [Fact]

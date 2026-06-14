@@ -46,4 +46,26 @@ public class SteamRegistryTests
         sut.SetRememberPassword(false);
         Assert.False(sut.GetRememberPassword());
     }
+
+    [Fact]
+    public void GetActiveAccountSteamId64_ConvertsActiveUserAccountIdToSteamId64()
+    {
+        var reg = new FakeWindowsRegistry();
+        // ActiveUser holds the SteamID3 (account id); 39734273 -> SteamID64 76561198000000001.
+        reg.SetDword(RegistryHiveSelector.CurrentUser, @"Software\Valve\Steam\ActiveProcess", "ActiveUser", 39734273);
+        var sut = new SteamRegistry(reg);
+
+        Assert.Equal("76561198000000001", sut.GetActiveAccountSteamId64());
+    }
+
+    [Fact]
+    public void GetActiveAccountSteamId64_ReturnsNull_WhenNotLoggedIn()
+    {
+        var reg = new FakeWindowsRegistry();
+        var sut = new SteamRegistry(reg);
+        Assert.Null(sut.GetActiveAccountSteamId64()); // no ActiveUser value
+
+        reg.SetDword(RegistryHiveSelector.CurrentUser, @"Software\Valve\Steam\ActiveProcess", "ActiveUser", 0);
+        Assert.Null(sut.GetActiveAccountSteamId64()); // 0 = at login screen
+    }
 }

@@ -32,14 +32,19 @@ public class AccountSwitcherTests
         FakeWindowsRegistry Registry,
         SteamRegistry SteamRegistry,
         FakeProcessController Process,
-        string LoginUsersPath);
+        string LoginUsersPath,
+        string LocalVdfPath,
+        string TokenStoreDir);
 
     private static Harness BuildHarness(TestPaths tmp, ILoginUsersStore? loginUsersOverride = null)
     {
         var loginUsersPath = tmp.WriteFile("config/loginusers.vdf", Vdf);
+        var localVdfPath = tmp.File("localappdata/Steam/local.vdf");
+        Directory.CreateDirectory(Path.GetDirectoryName(localVdfPath)!);
+        var tokenStoreDir = tmp.File("tokens");
         var paths = new SteamPaths(
             tmp.Root, Path.Combine(tmp.Root, "steam.exe"),
-            tmp.File("config"), loginUsersPath);
+            tmp.File("config"), loginUsersPath, localVdfPath);
 
         var reg = new FakeWindowsRegistry();
         var steamReg = new SteamRegistry(reg);
@@ -47,11 +52,12 @@ public class AccountSwitcherTests
         var atomic = new AtomicFile();
         var loginUsers = loginUsersOverride ?? new LoginUsersStore(atomic);
         var backup = new BackupService(tmp.File("backups"));
+        var tokenStore = new SteamTokenStore(tokenStoreDir);
 
         var switcher = new AccountSwitcher(
-            new FakeSteamLocator(paths), loginUsers, steamReg, process, backup);
+            new FakeSteamLocator(paths), loginUsers, steamReg, process, backup, tokenStore);
 
-        return new Harness(switcher, reg, steamReg, process, loginUsersPath);
+        return new Harness(switcher, reg, steamReg, process, loginUsersPath, localVdfPath, tokenStoreDir);
     }
 
     [Fact]
@@ -139,6 +145,38 @@ public class AccountSwitcherTests
         // Rollback must not strand the target account name in the registry.
         Assert.Equal("", h.SteamRegistry.GetAutoLoginUser());
         Assert.False(h.Process.LaunchCalled);
+    }
+
+    [Fact]
+    public void SwitchTo_CapturesOutgoingToken_AndRestoresTargetToken()
+    {
+        using var tmp = new TestPaths();
+        var h = BuildHarness(tmp);
+        // alice (76561198000000001) is currently logged in -> SteamID3 39734273.
+        h.Registry.SetDword(RegistryHiveSelector.CurrentUser, @"Software\Valve\Steam\ActiveProcess", "ActiveUser", 39734273);
+        File.WriteAllText(h.LocalVdfPath, "ALICE_TOKEN"); // local.vdf currently holds alice's token
+        Directory.CreateDirectory(h.TokenStoreDir);
+        File.WriteAllText(Path.Combine(h.TokenStoreDir, "76561198000000002.local.vdf"), "BOB_TOKEN"); // bob already saved
+
+        h.Switcher.SwitchTo("76561198000000002");
+
+        // Outgoing (alice) token captured before the switch...
+        Assert.Equal("ALICE_TOKEN", File.ReadAllText(Path.Combine(h.TokenStoreDir, "76561198000000001.local.vdf")));
+        // ...and the target (bob) token restored into local.vdf so Steam can silently auto-login.
+        Assert.Equal("BOB_TOKEN", File.ReadAllText(h.LocalVdfPath));
+    }
+
+    [Fact]
+    public void SwitchTo_LeavesLocalVdfUnchanged_WhenTargetHasNoSavedToken()
+    {
+        using var tmp = new TestPaths();
+        var h = BuildHarness(tmp);
+        File.WriteAllText(h.LocalVdfPath, "EXISTING"); // not logged in; no saved token for bob
+
+        h.Switcher.SwitchTo("76561198000000002");
+
+        Assert.Equal("EXISTING", File.ReadAllText(h.LocalVdfPath)); // nothing to restore -> untouched
+        Assert.True(h.Process.LaunchCalled);
     }
 
     [Fact]

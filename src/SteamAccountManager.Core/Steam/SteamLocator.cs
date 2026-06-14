@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using SteamAccountManager.Core.Models;
 using SteamAccountManager.Core.System;
@@ -30,10 +31,18 @@ public sealed class SteamLocator : ISteamLocator
         install = install.Replace('/', '\\').TrimEnd('\\');
         var configDir = Path.Combine(install, "config");
 
+        // local.vdf (the token store) always lives under LocalAppData, independent of where
+        // Steam itself is installed.
+        var localVdf = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Steam",
+            "local.vdf");
+
         return new SteamPaths(
             InstallDirectory: install,
             ExecutablePath: Path.Combine(install, "steam.exe"),
             ConfigDirectory: configDir,
-            LoginUsersPath: Path.Combine(configDir, "loginusers.vdf"));
+            LoginUsersPath: Path.Combine(configDir, "loginusers.vdf"),
+            LocalVdfPath: localVdf);
     }
 }

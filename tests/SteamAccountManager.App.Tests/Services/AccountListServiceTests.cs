@@ -11,7 +11,7 @@ namespace SteamAccountManager.App.Tests.Services;
 public class AccountListServiceTests
 {
     private static SteamPaths Paths(string loginUsersPath)
-        => new("C:\\Steam", "C:\\Steam\\steam.exe", "C:\\Steam\\config", loginUsersPath);
+        => new("C:\\Steam", "C:\\Steam\\steam.exe", "C:\\Steam\\config", loginUsersPath, "C:\\Steam\\local.vdf");
 
     private static SteamAccount Account(string id, string name, string persona, bool active = false)
         => new() { SteamId64 = id, AccountName = name, PersonaName = persona, MostRecent = active };
