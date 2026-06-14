@@ -27,4 +27,9 @@
     <InternalsVisibleTo Include="SteamAccountManager.App.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Assets\placeholder-avatar.png" />
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
 </Project>
