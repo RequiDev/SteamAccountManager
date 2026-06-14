@@ -4,5 +4,9 @@
     <tb:TaskbarIcon x:Key="NotifyIcon"
                     IconSource="pack://application:,,,/SteamAccountManager.App;component/Assets/app.ico"
                     ToolTipText="Steam Account Manager"
-                    NoLeftClickDelay="True" />
+                    NoLeftClickDelay="True">
+        <tb:TaskbarIcon.ContextMenu>
+            <ContextMenu />
+        </tb:TaskbarIcon.ContextMenu>
+    </tb:TaskbarIcon>
 </ResourceDictionary>
