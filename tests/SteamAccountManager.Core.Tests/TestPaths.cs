@@ -23,7 +23,7 @@ public sealed class TestPaths : IDisposable
     {
         var path = File(name);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        System.IO.File.WriteAllText(path, content);
+        global::System.IO.File.WriteAllText(path, content);
         return path;
     }
 
