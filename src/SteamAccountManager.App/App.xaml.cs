@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
 using SteamAccountManager.App.Infrastructure;
@@ -31,6 +33,11 @@ public partial class App : Application, IShellController
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // ---- Crash resilience (install first so it also covers startup failures) ----
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+
         base.OnStartup(e);
 
         // ---- Single instance ----
@@ -187,6 +194,36 @@ public partial class App : Application, IShellController
         if (_mainWindow is not null)
         {
             _ = _mainWindow.ViewModel.LoadAsync();
+        }
+    }
+
+    // ---- Crash resilience handlers ----
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        var logPath = CrashLogger.Log(e.Exception, "DispatcherUnhandledException");
+        e.Handled = true; // keep the app running instead of crashing to desktop
+        MessageBox.Show(
+            "Something went wrong, but Steam Account Manager is still running." +
+            Environment.NewLine + Environment.NewLine + e.Exception.Message +
+            (logPath is null
+                ? string.Empty
+                : Environment.NewLine + Environment.NewLine + "Details saved to:" + Environment.NewLine + logPath),
+            "Steam Account Manager",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+    }
+
+    private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        CrashLogger.Log(e.Exception, "UnobservedTaskException");
+        e.SetObserved();
+    }
+
+    private static void OnDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception ex)
+        {
+            CrashLogger.Log(ex, "AppDomain.UnhandledException");
         }
     }
 
