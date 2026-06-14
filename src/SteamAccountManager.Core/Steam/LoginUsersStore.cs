@@ -56,7 +56,39 @@ public sealed class LoginUsersStore : ILoginUsersStore
         return accounts;
     }
 
-    // SetActiveAccount is implemented in Task 5.
     public void SetActiveAccount(string loginUsersPath, string steamId64)
-        => throw new NotImplementedException();
+    {
+        KVDocument doc;
+        using (var fs = File.OpenRead(loginUsersPath))
+        {
+            doc = Serializer.Deserialize(fs);
+        }
+
+        var found = false;
+        foreach (KeyValuePair<string, KVObject> entry in doc.Root)
+        {
+            var isTarget = string.Equals(entry.Key, steamId64, StringComparison.Ordinal);
+            if (isTarget)
+            {
+                found = true;
+            }
+
+            VdfKeyValues.SetStringPreservingCase(entry.Value, "MostRecent", isTarget ? "1" : "0");
+            if (isTarget)
+            {
+                VdfKeyValues.SetStringPreservingCase(entry.Value, "RememberPassword", "1");
+            }
+        }
+
+        if (!found)
+        {
+            throw new AccountNotFoundException(steamId64);
+        }
+
+        _atomicFile.Write(loginUsersPath, stream => Serializer.Serialize(stream, doc));
+
+        // Validate that what we wrote re-parses; throws if we produced something invalid.
+        using var verify = File.OpenRead(loginUsersPath);
+        _ = Serializer.Deserialize(verify);
+    }
 }
