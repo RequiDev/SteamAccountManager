@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ValveKeyValue" Version="0.70.0.499" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SteamAccountManager.Core.Tests" />
+  </ItemGroup>
+
+</Project>
