@@ -78,6 +78,50 @@ public class MainViewModelTests
         Assert.Equal("2", mvm.FilteredAccounts[0].SteamId64);
     }
 
+    // Repro for the crash: the left-pane ListBox is TwoWay-bound to SelectedGroupFilter and
+    // pushes null when its selected item leaves the collection (GroupFilters.Clear() on reload).
+    [Fact]
+    public async Task SettingSelectedGroupFilterToNull_FallsBackToAll_AndDoesNotThrow()
+    {
+        var mvm = Build(new[] { Item("1", false, "g1"), Item("2") }, out var groups, out _);
+        groups.AddExisting("g1", "Work");
+        await mvm.LoadAsync();
+        mvm.SelectedGroupFilter = mvm.GroupFilters.Single(f => f.GroupId == "g1");
+
+        mvm.SelectedGroupFilter = null!; // the ListBox does this on collection clear
+
+        Assert.NotNull(mvm.SelectedGroupFilter);
+        Assert.True(mvm.SelectedGroupFilter.IsAll);
+    }
+
+    // The exact crash path: reload (as MainWindow.OnEditGroupsClick does after the group editor
+    // closes) must not throw even when the selection was cleared to null.
+    [Fact]
+    public async Task LoadAsync_AfterSelectionClearedToNull_DoesNotThrow()
+    {
+        var mvm = Build(new[] { Item("1", false, "g1"), Item("2") }, out var groups, out _);
+        groups.AddExisting("g1", "Work");
+        await mvm.LoadAsync();
+        mvm.SelectedGroupFilter = null!;
+
+        await mvm.LoadAsync();
+
+        Assert.NotNull(mvm.SelectedGroupFilter);
+    }
+
+    [Fact]
+    public async Task LoadAsync_PreservesSelectedGroup_AcrossReload()
+    {
+        var mvm = Build(new[] { Item("1", false, "g1"), Item("2") }, out var groups, out _);
+        groups.AddExisting("g1", "Work");
+        await mvm.LoadAsync();
+        mvm.SelectedGroupFilter = mvm.GroupFilters.Single(f => f.GroupId == "g1");
+
+        await mvm.LoadAsync(); // e.g. after editing groups
+
+        Assert.Equal("g1", mvm.SelectedGroupFilter.GroupId);
+    }
+
     [Fact]
     public async Task RefreshCommand_ReloadsAccounts()
     {

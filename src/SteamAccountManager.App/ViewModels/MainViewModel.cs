@@ -54,7 +54,12 @@ public partial class MainViewModel : ObservableObject
         get => _selectedGroupFilter;
         set
         {
-            if (SetProperty(ref _selectedGroupFilter, value))
+            // The TwoWay-bound ListBox writes null when its selected item leaves the
+            // collection (e.g. during GroupFilters.Clear() on reload). Coerce that to
+            // "All" so the selection — read by ApplyFilter and RebuildGroupFilters — is
+            // never null.
+            var coerced = value ?? GroupFilterItem.All();
+            if (SetProperty(ref _selectedGroupFilter, coerced))
             {
                 ApplyFilter();
             }
@@ -105,6 +110,11 @@ public partial class MainViewModel : ObservableObject
 
     private void RebuildGroupFilters()
     {
+        // Snapshot the selection BEFORE clearing: clearing the bound collection makes the
+        // ListBox push null into SelectedGroupFilter (coerced to "All"), so reading the field
+        // afterwards would both risk a null deref and lose the user's real selection.
+        var previous = _selectedGroupFilter;
+
         GroupFilters.Clear();
         GroupFilters.Add(GroupFilterItem.All());
         foreach (var g in _groups.GetGroups().OrderBy(g => g.SortOrder))
@@ -116,9 +126,9 @@ public partial class MainViewModel : ObservableObject
 
         // Preserve selection when possible; otherwise default to "All".
         var match = GroupFilters.FirstOrDefault(f =>
-            f.IsAll == _selectedGroupFilter.IsAll &&
-            f.IsUngrouped == _selectedGroupFilter.IsUngrouped &&
-            f.GroupId == _selectedGroupFilter.GroupId);
+            f.IsAll == previous.IsAll &&
+            f.IsUngrouped == previous.IsUngrouped &&
+            f.GroupId == previous.GroupId);
         _selectedGroupFilter = match ?? GroupFilterItem.All();
         OnPropertyChanged(nameof(SelectedGroupFilter));
     }
