@@ -26,7 +26,8 @@ public class AccountListServiceTests
         var sut = new AccountListService(
             new FakeSteamLocator(null),
             new StubLoginUsersStore(),
-            meta);
+            meta,
+            new FakeConnectCacheStore());
 
         Assert.Empty(sut.GetAccounts());
     }
@@ -53,10 +54,14 @@ public class AccountListServiceTests
             },
         };
 
+        var connectCache = new FakeConnectCacheStore();
+        connectCache.CachedAccounts.Add("alice"); // alice has a cached token, bob does not
+
         var sut = new AccountListService(
             new FakeSteamLocator(Paths(tmp.File("loginusers.vdf"))),
             loginUsers,
-            meta);
+            meta,
+            connectCache);
 
         var items = sut.GetAccounts();
 
@@ -65,9 +70,11 @@ public class AccountListServiceTests
         Assert.Equal("Main", alice.DisplayName);
         Assert.True(alice.IsActive);
         Assert.Equal(new[] { "g1" }, alice.GroupIds);
+        Assert.True(alice.IsTokenCached);
 
         var bob = items.Single(i => i.SteamId64 == "2");
         Assert.Equal("Bob", bob.DisplayName);
         Assert.Empty(bob.GroupIds);
+        Assert.False(bob.IsTokenCached);
     }
 }

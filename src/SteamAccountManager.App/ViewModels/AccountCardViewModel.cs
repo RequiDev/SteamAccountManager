@@ -26,6 +26,7 @@ public partial class AccountCardViewModel : ObservableObject
         DisplayName = item.DisplayName;
         GroupIds = item.GroupIds;
         IsActive = item.IsActive;
+        IsTokenCached = item.IsTokenCached;
         LastLogin = item.LastLogin;
         _currentLabel = item.CustomLabel;
         _currentNotes = item.Notes;
@@ -37,6 +38,9 @@ public partial class AccountCardViewModel : ObservableObject
     public string AccountName { get; }
     public IReadOnlyList<string> GroupIds { get; }
     public DateTimeOffset? LastLogin { get; }
+
+    /// <summary>True when this account has a cached token and can auto-login without a sign-in.</summary>
+    public bool IsTokenCached { get; }
 
     /// <summary>Raised after a successful switch with the SteamID64; parent VM refreshes on this.</summary>
     public event EventHandler<string>? SwitchCompleted;

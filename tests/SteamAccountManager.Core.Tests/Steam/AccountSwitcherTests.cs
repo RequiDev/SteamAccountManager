@@ -34,14 +34,13 @@ public class AccountSwitcherTests
         FakeProcessController Process,
         string LoginUsersPath,
         string LocalVdfPath,
-        string TokenStoreDir);
+        ConnectCacheStore ConnectCache);
 
     private static Harness BuildHarness(TestPaths tmp, ILoginUsersStore? loginUsersOverride = null)
     {
         var loginUsersPath = tmp.WriteFile("config/loginusers.vdf", Vdf);
         var localVdfPath = tmp.File("localappdata/Steam/local.vdf");
         Directory.CreateDirectory(Path.GetDirectoryName(localVdfPath)!);
-        var tokenStoreDir = tmp.File("tokens");
         var paths = new SteamPaths(
             tmp.Root, Path.Combine(tmp.Root, "steam.exe"),
             tmp.File("config"), loginUsersPath, localVdfPath);
@@ -52,12 +51,12 @@ public class AccountSwitcherTests
         var atomic = new AtomicFile();
         var loginUsers = loginUsersOverride ?? new LoginUsersStore(atomic);
         var backup = new BackupService(tmp.File("backups"));
-        var tokenStore = new SteamTokenStore(tokenStoreDir);
+        var connectCache = new ConnectCacheStore(tmp.File("connectcache.json"), atomic);
 
         var switcher = new AccountSwitcher(
-            new FakeSteamLocator(paths), loginUsers, steamReg, process, backup, tokenStore);
+            new FakeSteamLocator(paths), loginUsers, steamReg, process, backup, connectCache);
 
-        return new Harness(switcher, reg, steamReg, process, loginUsersPath, localVdfPath, tokenStoreDir);
+        return new Harness(switcher, reg, steamReg, process, loginUsersPath, localVdfPath, connectCache);
     }
 
     [Fact]
@@ -148,35 +147,53 @@ public class AccountSwitcherTests
     }
 
     [Fact]
-    public void SwitchTo_CapturesOutgoingToken_AndRestoresTargetToken()
+    public void SwitchTo_PreservesConnectCacheTokens_AcrossSwitches()
     {
         using var tmp = new TestPaths();
         var h = BuildHarness(tmp);
-        // alice (76561198000000001) is currently logged in -> SteamID3 39734273.
-        h.Registry.SetDword(RegistryHiveSelector.CurrentUser, @"Software\Valve\Steam\ActiveProcess", "ActiveUser", 39734273);
-        File.WriteAllText(h.LocalVdfPath, "ALICE_TOKEN"); // local.vdf currently holds alice's token
-        Directory.CreateDirectory(h.TokenStoreDir);
-        File.WriteAllText(Path.Combine(h.TokenStoreDir, "76561198000000002.local.vdf"), "BOB_TOKEN"); // bob already saved
+        // local.vdf currently holds a token for an account that the next state will have pruned.
+        File.WriteAllText(h.LocalVdfPath, ConnectCacheVdf(("714a299f1", "01000000AAAA")));
 
+        // First switch captures the token into the store...
         h.Switcher.SwitchTo("76561198000000002");
 
-        // Outgoing (alice) token captured before the switch...
-        Assert.Equal("ALICE_TOKEN", File.ReadAllText(Path.Combine(h.TokenStoreDir, "76561198000000001.local.vdf")));
-        // ...and the target (bob) token restored into local.vdf so Steam can silently auto-login.
-        Assert.Equal("BOB_TOKEN", File.ReadAllText(h.LocalVdfPath));
+        // Steam then prunes it (local.vdf no longer has that account)...
+        File.WriteAllText(h.LocalVdfPath, ConnectCacheVdf(("2d0baba01", "01000000BBBB")));
+
+        // ...and the next switch re-injects the preserved token, so both accounts stay cached.
+        h.Switcher.SwitchTo("76561198000000001");
+
+        var keys = ConnectCacheKeys(h.LocalVdfPath);
+        Assert.Contains("714a299f1", keys); // preserved
+        Assert.Contains("2d0baba01", keys);
+        Assert.True(h.Process.LaunchCalled);
     }
 
-    [Fact]
-    public void SwitchTo_LeavesLocalVdfUnchanged_WhenTargetHasNoSavedToken()
+    private static string ConnectCacheVdf(params (string key, string val)[] entries)
     {
-        using var tmp = new TestPaths();
-        var h = BuildHarness(tmp);
-        File.WriteAllText(h.LocalVdfPath, "EXISTING"); // not logged in; no saved token for bob
+        var sb = new global::System.Text.StringBuilder();
+        sb.Append("\"MachineUserConfigStore\"\n{\n\t\"Software\"\n\t{\n\t\t\"Valve\"\n\t\t{\n\t\t\t\"Steam\"\n\t\t\t{\n\t\t\t\t\"ConnectCache\"\n\t\t\t\t{\n");
+        foreach (var (k, v) in entries)
+        {
+            sb.Append($"\t\t\t\t\t\"{k}\"\t\t\"{v}\"\n");
+        }
 
-        h.Switcher.SwitchTo("76561198000000002");
+        sb.Append("\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n");
+        return sb.ToString();
+    }
 
-        Assert.Equal("EXISTING", File.ReadAllText(h.LocalVdfPath)); // nothing to restore -> untouched
-        Assert.True(h.Process.LaunchCalled);
+    private static global::System.Collections.Generic.List<string> ConnectCacheKeys(string vdfPath)
+    {
+        var ser = global::ValveKeyValue.KVSerializer.Create(global::ValveKeyValue.KVSerializationFormat.KeyValues1Text);
+        using var fs = File.OpenRead(vdfPath);
+        var cc = ser.Deserialize(fs).Root["Software"]["Valve"]["Steam"]["ConnectCache"];
+        var keys = new global::System.Collections.Generic.List<string>();
+        foreach (var kv in cc)
+        {
+            keys.Add(kv.Key);
+        }
+
+        return keys;
     }
 
     [Fact]

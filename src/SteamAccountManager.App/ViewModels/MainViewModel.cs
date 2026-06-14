@@ -71,6 +71,8 @@ public partial class MainViewModel : ObservableObject
         IsBusy = true;
         try
         {
+            // Record any newly-cached tokens from the live local.vdf before reading account status.
+            _switcher.CaptureTokens();
             RebuildGroupFilters();
             RebuildAccounts();
             ApplyFilter();

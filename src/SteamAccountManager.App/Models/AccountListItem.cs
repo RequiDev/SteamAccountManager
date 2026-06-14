@@ -18,6 +18,9 @@ public sealed record AccountListItem(
     /// <summary>Free-form per-account notes from metadata. Init-only so positional fixtures stay unchanged.</summary>
     public string? Notes { get; init; }
 
+    /// <summary>Whether a Steam token is cached for this account (it can auto-login without a sign-in).</summary>
+    public bool IsTokenCached { get; init; }
+
     /// <summary>Label shown in the UI: custom label, else non-empty persona, else account name.</summary>
     public string DisplayName =>
         !string.IsNullOrWhiteSpace(CustomLabel) ? CustomLabel!
