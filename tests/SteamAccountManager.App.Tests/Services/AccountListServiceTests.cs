@@ -2,6 +2,7 @@ using System.Linq;
 using SteamAccountManager.App.Services;
 using SteamAccountManager.App.Tests.Fakes;
 using SteamAccountManager.Core.Models;
+using SteamAccountManager.Core.Steam;
 using SteamAccountManager.Core.Storage;
 using SteamAccountManager.Core.System;
 using Xunit;
@@ -70,11 +71,11 @@ public class AccountListServiceTests
         Assert.Equal("Main", alice.DisplayName);
         Assert.True(alice.IsActive);
         Assert.Equal(new[] { "g1" }, alice.GroupIds);
-        Assert.True(alice.IsTokenCached);
+        Assert.Equal(TokenStatus.Ready, alice.TokenStatus);
 
         var bob = items.Single(i => i.SteamId64 == "2");
         Assert.Equal("Bob", bob.DisplayName);
         Assert.Empty(bob.GroupIds);
-        Assert.False(bob.IsTokenCached);
+        Assert.Equal(TokenStatus.Missing, bob.TokenStatus);
     }
 }
