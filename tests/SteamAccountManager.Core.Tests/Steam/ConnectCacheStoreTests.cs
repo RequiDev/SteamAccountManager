@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using SteamAccountManager.Core.Steam;
 using SteamAccountManager.Core.System;
@@ -126,5 +128,91 @@ public class ConnectCacheStoreTests
 
         var reloaded = new ConnectCacheStore(persist, atomic);
         Assert.True(reloaded.HasToken("acct_alpha"));
+    }
+
+    [Fact]
+    public void GetStatus_Missing_WhenNoEntry()
+    {
+        using var tmp = new TestPaths();
+        var store = new ConnectCacheStore(tmp.File("cc.json"), new AtomicFile());
+        store.Capture(tmp.WriteFile("a/local.vdf", SampleVdf(("15189d6c1", "01000000AAAA"))));
+
+        Assert.Equal(TokenStatus.Missing, store.GetStatus("acct_delta")); // not captured
+    }
+
+    [Fact]
+    public void GetStatus_Ready_WhenUnexpiredTokenForThisMachine()
+    {
+        using var tmp = new TestPaths();
+        var store = new ConnectCacheStore(tmp.File("cc.json"), new AtomicFile());
+        var future = DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeSeconds();
+        var key = ConnectCacheStore.KeyFor("acct_bravo");
+        store.Capture(tmp.WriteFile("a/local.vdf", SampleVdf((key, ProtectHex(MakeJwt(future), "acct_bravo")))));
+
+        Assert.Equal(TokenStatus.Ready, store.GetStatus("acct_bravo"));
+    }
+
+    [Fact]
+    public void GetStatus_Expired_WhenTokenPastExpiry()
+    {
+        using var tmp = new TestPaths();
+        var store = new ConnectCacheStore(tmp.File("cc.json"), new AtomicFile());
+        var past = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeSeconds();
+        var key = ConnectCacheStore.KeyFor("acct_bravo");
+        store.Capture(tmp.WriteFile("a/local.vdf", SampleVdf((key, ProtectHex(MakeJwt(past), "acct_bravo")))));
+
+        Assert.Equal(TokenStatus.Expired, store.GetStatus("acct_bravo"));
+    }
+
+    [Fact]
+    public void GetStatus_ForeignMachine_WhenTokenEntropyDoesNotMatch()
+    {
+        using var tmp = new TestPaths();
+        var store = new ConnectCacheStore(tmp.File("cc.json"), new AtomicFile());
+        var future = DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeSeconds();
+        var key = ConnectCacheStore.KeyFor("acct_bravo");
+        // Encrypted with a different account's entropy: it won't decrypt as "acct_bravo" here.
+        store.Capture(tmp.WriteFile("a/local.vdf", SampleVdf((key, ProtectHex(MakeJwt(future), "someone-else")))));
+
+        Assert.Equal(TokenStatus.ForeignMachine, store.GetStatus("acct_bravo"));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void IsUnexpiredJwt_RespectsExpiry(bool inFuture)
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var jwt = MakeJwt(inFuture ? now + 3600 : now - 3600);
+
+        Assert.Equal(inFuture, ConnectCacheStore.IsUnexpiredJwt(jwt, now));
+    }
+
+    [Theory]
+    [InlineData("not.a.jwt")]
+    [InlineData("garbage")]
+    [InlineData("")]
+    public void IsUnexpiredJwt_FalseOnNonJwt(string jwt)
+    {
+        Assert.False(ConnectCacheStore.IsUnexpiredJwt(jwt, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+    }
+
+    private static string MakeJwt(long exp)
+    {
+        static string B64Url(string json) =>
+            Convert.ToBase64String(Encoding.UTF8.GetBytes(json)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        var header = B64Url("{ \"typ\": \"JWT\", \"alg\": \"EdDSA\" }");
+        var payload = B64Url($"{{ \"exp\": {exp} }}");
+        return header + "." + payload + ".sig";
+    }
+
+    private static string ProtectHex(string jwt, string entropyName)
+    {
+        var blob = ProtectedData.Protect(
+            Encoding.ASCII.GetBytes(jwt),
+            Encoding.UTF8.GetBytes(entropyName.ToLowerInvariant()),
+            DataProtectionScope.CurrentUser);
+        return Convert.ToHexString(blob);
     }
 }
