@@ -24,6 +24,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial bool StartMinimized { get; set; }
 
+    [ObservableProperty]
+    public partial bool CheckForUpdatesOnStartup { get; set; }
+
     /// <summary>Loads the current state from the registry (autostart) and persisted settings.</summary>
     public void Initialize()
     {
@@ -33,6 +36,7 @@ public partial class SettingsViewModel : ObservableObject
             var s = _settings.Load();
             AutostartEnabled = _autostart.IsEnabled();
             StartMinimized = s.StartMinimized;
+            CheckForUpdatesOnStartup = s.CheckForUpdatesOnStartup;
         }
         finally
         {
@@ -67,6 +71,16 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         Persist(s => s.StartMinimized = value);
+    }
+
+    partial void OnCheckForUpdatesOnStartupChanged(bool value)
+    {
+        if (_initializing)
+        {
+            return;
+        }
+
+        Persist(s => s.CheckForUpdatesOnStartup = value);
     }
 
     private void Persist(Action<AppSettings> mutate)

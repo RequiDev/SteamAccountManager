@@ -30,7 +30,7 @@ public class TrayViewModelTests
         switcher = new FakeAccountSwitcher();
         var listService = new FakeAccountListService(() => accounts);
         var settings = new SettingsStore(tmp.File("settings.json"), new AtomicFile());
-        return new TrayViewModel(listService, groups, switcher, autostart, settings, shell);
+        return new TrayViewModel(listService, groups, switcher, autostart, settings, shell, new FakeUpdateCoordinator());
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public class TrayViewModelTests
         var autostart = new FakeAutostartService();
         var sut = new TrayViewModel(
             listService, new FakeGroupManagementService(), new FakeAccountSwitcher(),
-            autostart, settingsStore, new FakeShellController());
+            autostart, settingsStore, new FakeShellController(), new FakeUpdateCoordinator());
 
         Assert.False(sut.IsAutostartEnabled);
 
@@ -139,6 +139,22 @@ public class TrayViewModelTests
         Assert.False(sut.IsAutostartEnabled);
         Assert.False(autostart.IsEnabled());
         Assert.False(settingsStore.Load().AutostartEnabled);
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesCommand_DelegatesToCoordinator_AsUserInitiated()
+    {
+        using var tmp = new TestPaths();
+        var updates = new FakeUpdateCoordinator();
+        var settings = new SettingsStore(tmp.File("settings.json"), new AtomicFile());
+        var sut = new TrayViewModel(
+            new FakeAccountListService(() => Array.Empty<AccountListItem>()),
+            new FakeGroupManagementService(), new FakeAccountSwitcher(),
+            new FakeAutostartService(), settings, new FakeShellController(), updates);
+
+        await sut.CheckForUpdatesCommand.ExecuteAsync(null);
+
+        Assert.Equal(new[] { true }, updates.Checks.ToArray());
     }
 
     [Fact]
