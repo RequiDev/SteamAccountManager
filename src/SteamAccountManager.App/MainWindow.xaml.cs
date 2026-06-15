@@ -5,19 +5,23 @@ using Microsoft.Extensions.DependencyInjection;
 using SteamAccountManager.App.Services;
 using SteamAccountManager.App.ViewModels;
 using SteamAccountManager.App.Views;
+using SteamAccountManager.Core.Storage;
 using Wpf.Ui.Controls;
 
 namespace SteamAccountManager.App;
 
 public partial class MainWindow : FluentWindow
 {
+    private readonly ISettingsStore _settings;
     private bool _reallyExiting;
 
-    public MainWindow(MainViewModel viewModel)
+    public MainWindow(MainViewModel viewModel, ISettingsStore settings)
     {
+        _settings = settings;
         InitializeComponent();
         DataContext = viewModel;
         ViewModel = viewModel;
+        RestoreWindowSize();
     }
 
     public MainViewModel ViewModel { get; }
@@ -30,6 +34,9 @@ public partial class MainWindow : FluentWindow
 
     protected override void OnClosing(CancelEventArgs e)
     {
+        // Capture the size whether we're hiding to tray or really exiting.
+        SaveWindowSize();
+
         if (!_reallyExiting)
         {
             e.Cancel = true;
@@ -38,6 +45,43 @@ public partial class MainWindow : FluentWindow
         }
 
         base.OnClosing(e);
+    }
+
+    private void RestoreWindowSize()
+    {
+        var s = _settings.Load();
+        if (s.WindowWidth >= 200)
+        {
+            Width = s.WindowWidth;
+        }
+
+        if (s.WindowHeight >= 200)
+        {
+            Height = s.WindowHeight;
+        }
+
+        if (s.WindowMaximized)
+        {
+            WindowState = WindowState.Maximized;
+        }
+    }
+
+    private void SaveWindowSize()
+    {
+        var s = _settings.Load();
+        s.WindowMaximized = WindowState == WindowState.Maximized;
+
+        // When normal, read the live size; otherwise RestoreBounds holds the size to return to.
+        var bounds = WindowState == WindowState.Normal
+            ? new Rect(Left, Top, ActualWidth, ActualHeight)
+            : RestoreBounds;
+        if (bounds.Width >= 200 && bounds.Height >= 200)
+        {
+            s.WindowWidth = bounds.Width;
+            s.WindowHeight = bounds.Height;
+        }
+
+        _settings.Save(s);
     }
 
     private void OnSettingsClick(object sender, RoutedEventArgs e)
