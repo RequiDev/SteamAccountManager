@@ -88,12 +88,21 @@
                                             <TextBlock FontSize="11" Margin="0,2,0,0">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
+                                                        <!-- Default = Missing (no cached token). -->
                                                         <Setter Property="Text" Value="○ sign-in needed once" />
                                                         <Setter Property="Foreground" Value="#FFB74D" />
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsTokenCached}" Value="True">
+                                                            <DataTrigger Binding="{Binding TokenStatus}" Value="Ready">
                                                                 <Setter Property="Text" Value="● ready — auto-login" />
                                                                 <Setter Property="Foreground" Value="#66BB6A" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding TokenStatus}" Value="Expired">
+                                                                <Setter Property="Text" Value="○ expired — sign in once" />
+                                                                <Setter Property="Foreground" Value="#FFB74D" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding TokenStatus}" Value="ForeignMachine">
+                                                                <Setter Property="Text" Value="○ from another PC — sign in once" />
+                                                                <Setter Property="Foreground" Value="#FFB74D" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>

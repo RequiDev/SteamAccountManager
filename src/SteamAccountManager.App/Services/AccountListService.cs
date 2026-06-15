@@ -46,7 +46,7 @@ public sealed class AccountListService : IAccountListService
             var meta = _metadata.Get(account.SteamId64);
             result.Add(AccountListItem.From(account, meta) with
             {
-                IsTokenCached = _connectCache.HasToken(account.AccountName),
+                TokenStatus = _connectCache.GetStatus(account.AccountName),
             });
         }
 
