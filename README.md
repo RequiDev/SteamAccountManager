@@ -31,7 +31,7 @@ It only ever **copies** the already-encrypted token blobs between Steam's own fi
 ## Install
 
 1. Download `SteamAccountManager.App.exe` from the [latest release](../../releases/latest).
-2. Run it. It's a self-contained single file — no .NET runtime install required.
+2. Run it. It's a small single-file exe that runs on the **[.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)** — if that runtime isn't installed, Windows shows a prompt with a download link on first launch.
 
 The app lives in the system tray. Right-click the tray icon to switch accounts, manage groups, or open the main window.
 
@@ -48,12 +48,12 @@ dotnet build SteamAccountManager.slnx -c Release
 dotnet test  SteamAccountManager.slnx -c Release
 ```
 
-Publish a self-contained single-file exe (what CI ships):
+Publish the framework-dependent single-file exe (what CI ships — requires the .NET 10 Desktop Runtime on the target machine):
 
 ```bash
 dotnet publish src/SteamAccountManager.App/SteamAccountManager.App.csproj \
-  -c Release -r win-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+  -c Release -r win-x64 --self-contained false \
+  -p:PublishSingleFile=true
 ```
 
 ### Project layout

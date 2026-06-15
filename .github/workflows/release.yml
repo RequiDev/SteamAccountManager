@@ -33,16 +33,14 @@ jobs:
       - name: Test
         run: dotnet test SteamAccountManager.slnx -c Release --no-restore
 
-      - name: Publish (self-contained single-file, win-x64)
+      - name: Publish (framework-dependent single-file, win-x64)
         shell: bash
         run: >
           dotnet publish src/SteamAccountManager.App/SteamAccountManager.App.csproj
           -c Release
           -r win-x64
-          --self-contained true
+          -p:SelfContained=false
           -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
           -p:DebugType=none
           -p:DebugSymbols=false
           -p:Version=${{ steps.version.outputs.version }}
