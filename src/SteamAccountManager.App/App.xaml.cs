@@ -13,6 +13,7 @@ using SteamAccountManager.Core.Avatars;
 using SteamAccountManager.Core.Steam;
 using SteamAccountManager.Core.Storage;
 using SteamAccountManager.Core.System;
+using SteamAccountManager.Core.Updates;
 
 namespace SteamAccountManager.App;
 
@@ -39,6 +40,15 @@ public partial class App : Application, IShellController
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
 
         base.OnStartup(e);
+
+        // ---- Self-replacing update step ----
+        // When relaunched by the updater, replace the installed exe and restart it, then exit.
+        // Must run before the single-instance gate (the old instance still holds the mutex).
+        if (UpdateApplier.TryApply(e.Args))
+        {
+            Shutdown();
+            return;
+        }
 
         // ---- Single instance ----
         _mutex = new Mutex(initiallyOwned: true, MutexName, out var isFirstInstance);
@@ -90,6 +100,12 @@ public partial class App : Application, IShellController
 
         // Kick off the first data load.
         _ = _mainWindow.ViewModel.LoadAsync();
+
+        // Quietly check for updates on launch (if enabled); prompts only when one is available.
+        if (_provider.GetRequiredService<ISettingsStore>().Load().CheckForUpdatesOnStartup)
+        {
+            _ = _provider.GetRequiredService<IUpdateCoordinator>().CheckAsync(userInitiated: false);
+        }
     }
 
     private bool ShouldStartMinimized(string[] args)
@@ -149,7 +165,16 @@ public partial class App : Application, IShellController
                 sp.GetRequiredService<IAppPaths>().AvatarCacheDirectory,
                 sp.GetRequiredService<IAvatarFetcher>()));
 
+        // Core/Updates — typed HttpClient hitting the public GitHub releases API.
+        services.AddHttpClient<IUpdateService, GitHubUpdateService>(c =>
+        {
+            c.Timeout = TimeSpan.FromSeconds(30);
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("SteamAccountManager-Updater/1.0");
+            c.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+        });
+
         // App services.
+        services.AddSingleton<IUpdateCoordinator, UpdateCoordinator>();
         services.AddSingleton<IAccountListService, AccountListService>();
         services.AddSingleton<IGroupManagementService, GroupManagementService>();
         services.AddSingleton<IAccountAddCoordinator, AccountAddCoordinator>();

@@ -44,6 +44,7 @@ internal static class TrayMenuBuilder
             IsChecked = vm.IsAutostartEnabled,
             Command = vm.ToggleAutostartCommand,
         });
+        menu.Items.Add(new MenuItem { Header = "Check for updates", Command = vm.CheckForUpdatesCommand });
         menu.Items.Add(new Separator());
         menu.Items.Add(new MenuItem { Header = "Exit", Command = vm.ExitCommand });
     }

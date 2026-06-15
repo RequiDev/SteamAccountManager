@@ -21,6 +21,7 @@ public partial class TrayViewModel : ObservableObject
     private readonly IAutostartService _autostart;
     private readonly ISettingsStore _settings;
     private readonly IShellController _shell;
+    private readonly IUpdateCoordinator _updates;
 
     public TrayViewModel(
         IAccountListService accounts,
@@ -28,7 +29,8 @@ public partial class TrayViewModel : ObservableObject
         IAccountSwitcher switcher,
         IAutostartService autostart,
         ISettingsStore settings,
-        IShellController shell)
+        IShellController shell,
+        IUpdateCoordinator updates)
     {
         _accounts = accounts;
         _groups = groups;
@@ -36,6 +38,7 @@ public partial class TrayViewModel : ObservableObject
         _autostart = autostart;
         _settings = settings;
         _shell = shell;
+        _updates = updates;
         IsAutostartEnabled = _autostart.IsEnabled();
     }
 
@@ -75,6 +78,9 @@ public partial class TrayViewModel : ObservableObject
             Groups.Add(new TrayGroupItem("Ungrouped", ungrouped));
         }
     }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync() => await _updates.CheckAsync(userInitiated: true).ConfigureAwait(true);
 
     [RelayCommand]
     private void ShowWindow() => _shell.ShowMainWindow();
