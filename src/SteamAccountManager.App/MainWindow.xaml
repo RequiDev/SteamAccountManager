@@ -62,7 +62,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <ui:CardControl Width="280" Margin="6">
+                                <ui:CardControl Width="300" Margin="6">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -108,20 +108,21 @@
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <!-- WrapPanel so the action buttons reflow instead of clipping at narrow widths/DPI. -->
+                                            <WrapPanel Margin="0,8,0,0">
                                                 <ui:Button Content="Switch" Command="{Binding SwitchCommand}"
                                                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
-                                                           Margin="0,0,6,0" />
+                                                           Margin="0,0,6,6" />
                                                 <ui:Button Content="Groups"
                                                            Tag="{Binding}"
                                                            Click="OnEditGroupsClick"
-                                                           Margin="0,0,6,0" />
+                                                           Margin="0,0,6,6" />
                                                 <ui:Button Icon="{ui:SymbolIcon Edit24}" ToolTip="Edit label and notes"
-                                                           Command="{Binding BeginEditCommand}" />
+                                                           Command="{Binding BeginEditCommand}" Margin="0,0,0,6" />
                                                 <ui:ProgressRing IsIndeterminate="True" Width="18" Height="18"
-                                                                 Margin="6,0,0,0"
+                                                                 VerticalAlignment="Center" Margin="6,0,0,6"
                                                                  Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
-                                            </StackPanel>
+                                            </WrapPanel>
 
                                             <!-- Inline edit panel for custom label + notes (toggled by the pencil). -->
                                             <StackPanel Margin="0,8,0,0"
