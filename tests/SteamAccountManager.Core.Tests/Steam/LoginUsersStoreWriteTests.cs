@@ -51,11 +51,34 @@ public class LoginUsersStoreWriteTests
         Assert.True(bob.MostRecent);
         Assert.True(bob.RememberPassword);
 
-        // Unknown/unmodelled fields must survive the round-trip.
+        // Unknown/unmodelled fields must survive the round-trip, and a non-target
+        // account's Timestamp must be left untouched.
         var raw = File.ReadAllText(path);
         Assert.Contains("WantsOfflineMode", raw);
         Assert.Contains("Bob", raw);
-        Assert.Contains("1688740000", raw);
+        Assert.Equal(1688740727, alice.Timestamp);
+    }
+
+    [Fact]
+    public void SetActiveAccount_MakesTargetSoleAutoLogin_AndStrictlyNewest()
+    {
+        using var tmp = new TestPaths();
+        var path = tmp.WriteFile("config/loginusers.vdf", Vdf);
+        var sut = new LoginUsersStore(new AtomicFile());
+
+        // alice starts as the most-recent auto-login account (newer Timestamp).
+        sut.SetActiveAccount(path, "76561198000000002");
+
+        var accounts = sut.Read(path);
+        var alice = accounts.Single(a => a.SteamId64 == "76561198000000001");
+        var bob = accounts.Single(a => a.SteamId64 == "76561198000000002");
+
+        // Steam auto-selects the highest-Timestamp account, so the target must become
+        // strictly the newest and the sole AllowAutoLogin account.
+        Assert.True(bob.AllowAutoLogin);
+        Assert.False(alice.AllowAutoLogin);
+        Assert.True(bob.Timestamp > alice.Timestamp,
+            $"target Timestamp ({bob.Timestamp}) must exceed every other account ({alice.Timestamp})");
     }
 
     [Fact]
