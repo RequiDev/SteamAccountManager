@@ -78,6 +78,58 @@ public class MainViewModelTests
         Assert.Equal("2", mvm.FilteredAccounts[0].SteamId64);
     }
 
+    [Fact]
+    public async Task SearchText_FiltersByLoginName()
+    {
+        var mvm = Build(new[] { Item("1"), Item("2") }, out _, out _);
+        await mvm.LoadAsync();
+
+        mvm.SearchText = "name1"; // login name is "name1"
+
+        Assert.Single(mvm.FilteredAccounts);
+        Assert.Equal("1", mvm.FilteredAccounts[0].SteamId64);
+    }
+
+    [Fact]
+    public async Task SearchText_FiltersByDisplayName_CaseInsensitive()
+    {
+        var mvm = Build(new[] { Item("1"), Item("2") }, out _, out _);
+        await mvm.LoadAsync();
+
+        mvm.SearchText = "persona2"; // display name is "Persona2"
+
+        Assert.Single(mvm.FilteredAccounts);
+        Assert.Equal("2", mvm.FilteredAccounts[0].SteamId64);
+    }
+
+    [Fact]
+    public async Task SearchText_CombinesWithGroupFilter()
+    {
+        var mvm = Build(
+            new[] { Item("1", false, "g1"), Item("2", false, "g1"), Item("3") },
+            out var groups, out _);
+        groups.AddExisting("g1", "Work");
+        await mvm.LoadAsync();
+
+        mvm.SelectedGroupFilter = mvm.GroupFilters.Single(f => f.GroupId == "g1");
+        mvm.SearchText = "name2";
+
+        Assert.Single(mvm.FilteredAccounts);
+        Assert.Equal("2", mvm.FilteredAccounts[0].SteamId64);
+    }
+
+    [Fact]
+    public async Task SearchText_ClearedToEmpty_ShowsAllAgain()
+    {
+        var mvm = Build(new[] { Item("1"), Item("2") }, out _, out _);
+        await mvm.LoadAsync();
+
+        mvm.SearchText = "name1";
+        mvm.SearchText = "";
+
+        Assert.Equal(2, mvm.FilteredAccounts.Count);
+    }
+
     // Repro for the crash: the left-pane ListBox is TwoWay-bound to SelectedGroupFilter and
     // pushes null when its selected item leaves the collection (GroupFilters.Clear() on reload).
     [Fact]

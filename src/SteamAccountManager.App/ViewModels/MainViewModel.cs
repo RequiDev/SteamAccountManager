@@ -48,6 +48,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial string? StatusMessage { get; set; }
 
+    /// <summary>Free-text filter matched against each account's display name and login name.</summary>
+    [ObservableProperty]
+    public partial string SearchText { get; set; } = "";
+
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+
     private GroupFilterItem _selectedGroupFilter;
     public GroupFilterItem SelectedGroupFilter
     {
@@ -186,6 +192,15 @@ public partial class MainViewModel : ObservableObject
         else if (!_selectedGroupFilter.IsAll && _selectedGroupFilter.GroupId is { } gid)
         {
             source = Accounts.Where(a => a.GroupIds.Contains(gid));
+        }
+
+        // Combine (AND) with the free-text search over display name + login name.
+        var search = SearchText?.Trim();
+        if (!string.IsNullOrEmpty(search))
+        {
+            source = source.Where(a =>
+                a.DisplayName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                a.AccountName.Contains(search, StringComparison.OrdinalIgnoreCase));
         }
 
         foreach (var a in source)

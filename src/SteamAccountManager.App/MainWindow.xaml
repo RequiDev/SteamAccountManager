@@ -49,6 +49,10 @@
                                Command="{Binding RefreshCommand}" Margin="0,0,8,0" />
                     <ui:Button x:Name="SettingsButton" Content="Settings" Icon="{ui:SymbolIcon Settings24}"
                                Click="OnSettingsClick" />
+                    <ui:TextBox x:Name="SearchBox" Icon="{ui:SymbolIcon Search24}"
+                                PlaceholderText="Search name or login…"
+                                Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                Width="240" Margin="16,0,0,0" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
                                Margin="16,0,0,0" TextWrapping="Wrap" Opacity="0.8" />
                 </StackPanel>
