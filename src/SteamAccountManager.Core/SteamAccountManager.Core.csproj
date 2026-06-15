@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="ValveKeyValue" Version="0.70.0.499" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

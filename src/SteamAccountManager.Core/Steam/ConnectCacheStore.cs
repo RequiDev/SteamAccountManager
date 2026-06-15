@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using SteamAccountManager.Core.System;
@@ -29,6 +30,13 @@ public interface IConnectCacheStore
 
     /// <summary>Whether a token is saved for this account (its ConnectCache key is in the union).</summary>
     bool HasToken(string accountName);
+
+    /// <summary>
+    /// Classifies how ready this account's cached token is for silent auto-login. Decrypts the token
+    /// locally (DPAPI, current user) only to read its expiry; nothing is modified and nothing leaves
+    /// the machine.
+    /// </summary>
+    TokenStatus GetStatus(string accountName);
 }
 
 public sealed class ConnectCacheStore : IConnectCacheStore
@@ -52,6 +60,74 @@ public sealed class ConnectCacheStore : IConnectCacheStore
     public static string KeyFor(string accountName) => Crc32.HashHex(accountName.ToLowerInvariant()) + "1";
 
     public bool HasToken(string accountName) => _entries.ContainsKey(KeyFor(accountName));
+
+    public TokenStatus GetStatus(string accountName)
+    {
+        if (!_entries.TryGetValue(KeyFor(accountName), out var hex) || string.IsNullOrEmpty(hex))
+        {
+            return TokenStatus.Missing;
+        }
+
+        byte[] decrypted;
+        try
+        {
+            // Steam binds the token with DPAPI using the lowercased account name as entropy. If it
+            // doesn't decrypt here, the blob came from another Windows user/machine (or is corrupt).
+            var blob = Convert.FromHexString(hex);
+            var entropy = Encoding.UTF8.GetBytes(accountName.ToLowerInvariant());
+            decrypted = ProtectedData.Unprotect(blob, entropy, DataProtectionScope.CurrentUser);
+        }
+        catch (Exception)
+        {
+            return TokenStatus.ForeignMachine;
+        }
+
+        var jwt = Encoding.ASCII.GetString(decrypted);
+        return IsUnexpiredJwt(jwt, DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+            ? TokenStatus.Ready
+            : TokenStatus.Expired;
+    }
+
+    /// <summary>True when <paramref name="jwt"/> is a JWT whose <c>exp</c> claim is after <paramref name="nowUnixSeconds"/>.</summary>
+    internal static bool IsUnexpiredJwt(string jwt, long nowUnixSeconds)
+    {
+        var parts = jwt.Split('.');
+        if (parts.Length < 2)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var header = JsonDocument.Parse(Encoding.UTF8.GetString(Base64UrlDecode(parts[0])));
+            if (!header.RootElement.TryGetProperty("typ", out var typ) ||
+                !string.Equals(typ.GetString(), "JWT", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            using var payload = JsonDocument.Parse(Encoding.UTF8.GetString(Base64UrlDecode(parts[1])));
+            return payload.RootElement.TryGetProperty("exp", out var expEl)
+                && expEl.TryGetInt64(out var exp)
+                && exp > nowUnixSeconds;
+        }
+        catch (Exception)
+        {
+            return false; // not a JWT we can read → treat as not ready
+        }
+    }
+
+    private static byte[] Base64UrlDecode(string s)
+    {
+        s = s.Replace('-', '+').Replace('_', '/');
+        switch (s.Length % 4)
+        {
+            case 2: s += "=="; break;
+            case 3: s += "="; break;
+        }
+
+        return Convert.FromBase64String(s);
+    }
 
     public void Capture(string localVdfPath)
     {
