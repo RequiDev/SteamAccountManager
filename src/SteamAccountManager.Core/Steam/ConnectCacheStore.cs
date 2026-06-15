@@ -173,10 +173,13 @@ public sealed class ConnectCacheStore : IConnectCacheStore
                 doc = Serializer.Deserialize(fs);
             }
 
+            // Navigate case-insensitively: Steam treats VDF keys case-insensitively and writes this
+            // path's casing inconsistently across installs (e.g. "valve" vs "Valve"). A case-sensitive
+            // lookup here silently returned nothing, making every account read as "no cached token".
             var node = doc.Root;
             foreach (var part in CachePath)
             {
-                if (!node.TryGetValue(part, out var child))
+                if (!VdfKeyValues.TryGetCI(node, part, out var child))
                 {
                     return result;
                 }
@@ -244,7 +247,9 @@ public sealed class ConnectCacheStore : IConnectCacheStore
         var node = root;
         foreach (var part in CachePath)
         {
-            if (!node.TryGetValue(part, out var child))
+            // Reuse an existing path node regardless of casing, so we never create a duplicate
+            // differently-cased branch (e.g. a new "Valve" beside the install's existing "valve").
+            if (!VdfKeyValues.TryGetCI(node, part, out var child))
             {
                 child = KVObject.ListCollection();
                 node[part] = child;

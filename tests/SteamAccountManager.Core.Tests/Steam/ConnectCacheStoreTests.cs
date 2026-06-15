@@ -197,6 +197,40 @@ public class ConnectCacheStoreTests
         Assert.False(ConnectCacheStore.IsUnexpiredJwt(jwt, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
     }
 
+    [Fact]
+    public void Capture_ReadsConnectCache_WhenPathCasingDiffers()
+    {
+        using var tmp = new TestPaths();
+        var store = new ConnectCacheStore(tmp.File("cc.json"), new AtomicFile());
+        var path = tmp.WriteFile("local.vdf", MixedCaseVdf("15189d6c1", "01000000AAAA"));
+
+        store.Capture(path);
+
+        Assert.True(store.HasToken("acct_alpha")); // 15189d6c1 — reachable despite a lowercase "valve" node
+    }
+
+    [Fact]
+    public void Merge_ReusesExistingPathNode_WhenCasingDiffers_WithoutDuplicatingBranch()
+    {
+        using var tmp = new TestPaths();
+        var store = new ConnectCacheStore(tmp.File("cc.json"), new AtomicFile());
+        var path = tmp.WriteFile("local.vdf", MixedCaseVdf("15189d6c1", "01000000AAAA"));
+
+        store.Merge(path);
+
+        var text = File.ReadAllText(path);
+        Assert.Contains("\"valve\"", text);        // original lowercase casing preserved
+        Assert.DoesNotContain("\"Valve\"", text);  // no duplicate capital-cased branch created
+        Assert.Contains("15189d6c1", text);
+    }
+
+    // Real-world: Steam writes this path's casing inconsistently across installs ("valve" lowercase).
+    private static string MixedCaseVdf(string key, string val) =>
+        "\"MachineUserConfigStore\"\n{\n\t\"Software\"\n\t{\n\t\t\"valve\"\n\t\t{\n\t\t\t\"Steam\"\n\t\t\t{\n" +
+        "\t\t\t\t\"ConnectCache\"\n\t\t\t\t{\n" +
+        $"\t\t\t\t\t\"{key}\"\t\t\"{val}\"\n" +
+        "\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n";
+
     private static string MakeJwt(long exp)
     {
         static string B64Url(string json) =>

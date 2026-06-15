@@ -18,7 +18,8 @@ public class Crc32Tests
     [InlineData("acct_charlie@example.com", "2c5f530d1")]
     public void KeyFor_MatchesSteamConnectCacheKeys(string accountName, string expectedKey)
     {
-        // Verified against the real local.vdf on a live install.
+        // Synthetic vectors: the key is hex(CRC32(lowercased name)) + "1", matching the format
+        // Steam uses for its local.vdf ConnectCache keys.
         Assert.Equal(expectedKey, ConnectCacheStore.KeyFor(accountName));
     }
 
