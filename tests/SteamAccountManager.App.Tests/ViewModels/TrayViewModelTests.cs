@@ -67,6 +67,32 @@ public class TrayViewModelTests
     }
 
     [Fact]
+    public void Rebuild_TrayItems_AppendLoginName_SoDuplicateDisplayNamesAreDistinct()
+    {
+        using var tmp = new TestPaths();
+        // Two accounts sharing a display name (persona) but with distinct Steam login names.
+        var a = new AccountListItem("76561190000000001", "login_a", "SameName", null, Array.Empty<string>(), false, null);
+        var b = new AccountListItem("76561190000000002", "login_b", "SameName", null, Array.Empty<string>(), false, null);
+        var sut = Build(new[] { a, b }, new FakeGroupManagementService(), out _, out _, out _, tmp);
+
+        sut.Rebuild();
+
+        var labels = sut.Groups.Single(g => g.Header == "Ungrouped").Accounts.Select(x => x.MenuLabel).ToList();
+        Assert.Contains("SameName (login_a)", labels);
+        Assert.Contains("SameName (login_b)", labels);
+    }
+
+    [Theory]
+    [InlineData("Yoshino", "requi_cs2", "Yoshino (requi_cs2)")]
+    [InlineData("alice", "alice", "alice")] // no redundant "alice (alice)" when display == login
+    public void TrayAccountItem_MenuLabel_AppendsLoginName_ExceptWhenIdentical(
+        string display, string account, string expected)
+    {
+        var item = new TrayAccountItem("76561190000000000", display, account, false);
+        Assert.Equal(expected, item.MenuLabel);
+    }
+
+    [Fact]
     public void ShowWindowCommand_DelegatesToShell()
     {
         using var tmp = new TestPaths();

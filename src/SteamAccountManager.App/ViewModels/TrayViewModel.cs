@@ -56,7 +56,7 @@ public partial class TrayViewModel : ObservableObject
         {
             var members = accounts
                 .Where(a => a.GroupIds.Contains(group.Id))
-                .Select(a => new TrayAccountItem(a.SteamId64, a.DisplayName, a.IsActive))
+                .Select(a => new TrayAccountItem(a.SteamId64, a.DisplayName, a.AccountName, a.IsActive))
                 .ToList();
 
             if (members.Count > 0)
@@ -67,7 +67,7 @@ public partial class TrayViewModel : ObservableObject
 
         var ungrouped = accounts
             .Where(a => a.GroupIds.Count == 0)
-            .Select(a => new TrayAccountItem(a.SteamId64, a.DisplayName, a.IsActive))
+            .Select(a => new TrayAccountItem(a.SteamId64, a.DisplayName, a.AccountName, a.IsActive))
             .ToList();
 
         if (ungrouped.Count > 0)

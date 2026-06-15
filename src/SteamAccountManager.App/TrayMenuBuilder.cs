@@ -23,7 +23,7 @@ internal static class TrayMenuBuilder
             {
                 var leaf = new MenuItem
                 {
-                    Header = account.DisplayName,
+                    Header = account.MenuLabel,
                     IsCheckable = true, // so the active account shows a checkmark
                     IsChecked = account.IsActive,
                     Command = vm.SwitchAccountCommand,
